@@ -1,78 +1,164 @@
-# Battledot
-Battledot is a spinoff of the popular battleship game. The game has been implemented in python and was done for a take home assessment.
-Game description:
+# Battledot — Distributed Ring Topology Simulation
 
-Rather than having two players oppose each other directly, any player will be attacked by one opponent and in turn will attack a different opponent.   
-Players are connected in a ring: A is bombing B who is bombing C, ... who is bombing Z who is bombing A.   
-Each player has a 10x10 grid of "dots" where one "single-dot ship" is positioned randomly. A player loses if this ship is bombed.   
-Players cannot see each other's grids directly. Each player randomly selects a dot location on the enemy grid to bomb, and sends the bomb to the enemy. If the bomb lands in the enemy's dot-ship, the enemy dies; otherwise, it lives. When a player dies, relevant neighbors are matched up so that their unfinished games can continue.   
-For example: A is bombing B is bombing C is bombing D is bombing A. If B hits C's ship, B wins, C loses/dies. B is now bombing D. 
+## Overview
 
-Follow the steps below to run the code:
-README FILE:
+Battledot is a **peer-to-peer distributed system simulation** implemented in Python. It models a dynamic ring topology where independent nodes (players) communicate over sockets, exchange messages, and reconfigure the network in response to node failures.
 
-This program is a BattleDot SpinOff where Players will enter into the arena and await the game to start.
-Players will then take turns attacking at random the oppenent in front of them. When their ship is taken down by an opponent,
-they will send the port/IP of the oppenents adjacent to it so they can be connected. The game ends when only one user remains
+Each node operates autonomously, maintaining only local knowledge of its neighbors while participating in a global game state.
 
-The program features 2 ways to play. P2P with different IP's under the same network or different Ports using the same machine!
+---
 
-Written in Python 3.7.3
+## Problem Statement
 
+This project explores a fundamental distributed systems challenge:
 
-HOW TO USE:
+> How do independently running nodes maintain a consistent communication structure when nodes fail dynamically?
 
-IF ON THE SAME MACHINE:
+Battledot simulates this using a game abstraction:
 
-We initialize all the players by: (Assuming they will form a perfect ring and no user has multiple people attacking it)
+* Each node represents a player in a ring
+* Nodes communicate only with adjacent peers
+* When a node is eliminated, the network must **self-heal** by reconnecting its neighbors
 
-Run Python BattleDot N/A N/A PortA PortB #OfOtherplayers PortUser
+---
 
-eg. (Python BattleDot.py N/A N/A 8079 8081 2 8080)
+## System Design
 
-    (Python BattleDot.py N/A N/A 8080 8079 2 8081)
+### Topology
 
-Initialize the final player with the last arguement being "first"
+* Nodes are arranged in a **unidirectional ring**
+* Each node:
 
-Run Python BattleDot N/A N/A PortA PortB #OfOtherplayers PortUser first
+  * Sends messages to one neighbor (outgoing)
+  * Receives messages from another neighbor (incoming)
 
-eg. (Python BattleDot.py N/A N/A 8081 8080 2 8079 first)
+Example:
+A → B → C → D → A
 
+---
 
-Wait until the users done battling !!
+### Communication Model
 
+* Peer-to-peer communication using **IP + Port-based socket connections**
+* No central coordinator or server
+* Each node:
 
+  * Sends attack messages
+  * Receives attack results
+  * Updates neighbors on topology changes
 
-IF ON SEPERATE MACHINES:
+---
 
-We initialize all the players by: (Assuming they will form a perfect ring and no user has multiple people attacking it)
+### Failure Handling & Recovery
 
-Here the ports do not really matter.
+When a node is eliminated:
 
-Run Python BattleDot IP_A IP_B PortA PortB #OfOtherplayers PortUser
+1. It notifies its adjacent nodes
+2. The adjacent nodes reconnect to each other
+3. The ring topology is restored without global coordination
 
-eg. (Python BattleDot.py 129.128.41.11 129.128.41.13 8080 8089 2 8080)
+Example:
+A → B → C → D → A
+If C is eliminated →
+A → B → D → A
 
-    (Python BattleDot.py 129.128.41.12 129.128.41.11 8080 8089 2 8080)
+---
 
-Initialize the final player with the last arguement being "first"
+## Game Mechanics (Abstraction Layer)
 
-Run Python BattleDot N/A N/A PortA PortB #OfOtherplayers PortUser first
+* Each node maintains a 10x10 grid
+* A single “ship” is randomly placed
+* Nodes attack neighbors with random coordinates
+* If a ship is hit → node is eliminated
+* The game continues until only one node remains
 
-eg. (Python BattleDot.py 129.128.41.13 129.128.41.12 8080 8089 2 8080)
+---
 
+## Key Engineering Concepts
 
+* **Decentralized system design**
+* **Ring topology maintenance**
+* **Fault tolerance via local recovery**
+* **Peer-to-peer communication**
+* **Dynamic network reconfiguration**
 
-Wait until the users are done battling !
+---
 
+## Limitations
 
+* Assumes reliable message delivery (no packet loss handling)
+* No synchronization guarantees between nodes
+* Minimal fault tolerance beyond node elimination
+* Single-file implementation limits modularity and scalability
 
-RESULTS:
+---
 
-Throughout the entire program for each process there will be "Sent attack to ___" and Received from "____"
+## How to Run
 
-these help indicate which node its being attacked by or who it is attacking. Upon getting knocked out, it will say
+### Same Machine (Multiple Ports)
 
-"Hit! Player Lose" and will then update the neighbors with its each other's IP/POrt so they can continue battling.
+Run each node as a separate process:
 
-Upon being the last player remaining, There is a notification saying the user has won!
+```bash
+python Battledot.py N/A N/A <PortA> <PortB> <NumPlayers> <MyPort>
+```
+
+Initialize the final node with:
+
+```bash
+python Battledot.py N/A N/A <PortA> <PortB> <NumPlayers> <MyPort> first
+```
+
+---
+
+### Different Machines (Networked)
+
+```bash
+python Battledot.py <IP_A> <IP_B> <PortA> <PortB> <NumPlayers> <MyPort>
+```
+
+Final node:
+
+```bash
+python Battledot.py <IP_A> <IP_B> <PortA> <PortB> <NumPlayers> <MyPort> first
+```
+
+---
+
+## Example Output
+
+* "Sent attack to X"
+* "Received attack from Y"
+* "Hit! Player Lose"
+* "Reconnecting neighbors"
+* "You are the last player remaining"
+
+---
+
+## Future Improvements
+
+* Refactor into modular components (networking, game logic, state management)
+* Add message protocol definitions
+* Introduce failure scenarios (network drops, retries)
+* Build a visualization layer for ring topology
+* Add simulation mode for large-scale testing
+
+---
+
+## Why This Project
+
+This project was originally built as a take-home assessment but evolved into an exploration of **distributed systems fundamentals**, particularly:
+
+* decentralized coordination
+* topology repair
+* and fault handling without a central authority
+
+---
+
+## Tech Stack
+
+* Python 3
+* Socket Programming
+* Multi-process execution (manual orchestration)
+
+---
